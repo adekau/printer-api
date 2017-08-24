@@ -8,9 +8,14 @@ extern crate futures;
 extern crate hyper;
 extern crate tokio_core;
 extern crate serde_json;
+extern crate toml;
+#[macro_use]
+extern crate serde_derive;
+
 
 mod jobs;
 mod api;
+mod config;
 
 use ws::{Sender, Message, Handler, Factory};
 
@@ -23,7 +28,7 @@ use rocket::response::content;
 
 struct ServerFactory;
 struct ServerHandler {
-    ws: Sender,
+    // ws: Sender,
 }
 
 impl Handler for ServerHandler {
@@ -41,15 +46,15 @@ impl Handler for ServerHandler {
 impl Factory for ServerFactory {
     type Handler = ServerHandler;
 
-    fn connection_made(&mut self, ws: Sender) -> ServerHandler {
+    fn connection_made(&mut self, _: Sender) -> ServerHandler {
         ServerHandler {
-            ws: ws,
+            // ws: ws,
         }
     }
 
-    fn client_connected(&mut self, ws: Sender) -> ServerHandler {
+    fn client_connected(&mut self, _: Sender) -> ServerHandler {
         ServerHandler {
-            ws: ws,
+            // ws: ws,
         }
     }
 }
@@ -75,6 +80,10 @@ fn main() {
     // Create a channels for communication between the job runner and
     // the broadcaster thread.
     let (tx, rx) = channel();
+
+    // Get the hosts from the config file.
+    let mut config = config::Config::new();
+    let _hosts = config.get_hosts().unwrap();
 
     // Spawn a thread to run job updates.
     jobs::job_runner(tx.clone());
