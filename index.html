@@ -1,0 +1,30 @@
+<html>
+    <head>
+    </head>
+
+    <body>
+        <div id="test-element">
+            Hello, world.
+        </div>
+
+        <script>
+
+            var exampleSocket = new WebSocket("ws://127.0.0.1:80");
+            function sendMsg() {
+                exampleSocket.send("hello");
+            }
+            exampleSocket.onopen = function () {
+                setInterval(sendMsg, 1000);
+            }
+
+            exampleSocket.onmessage = function(msg) {
+                console.log(msg);
+                document.getElementById("test-element").innerHTML += msg.data;
+            };
+
+            document.getElementById("test-element").onclick = function(e) {
+                this.innerText = "Hello, world!";
+            };
+        </script>
+    </body>
+</html>
