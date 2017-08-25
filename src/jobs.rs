@@ -14,7 +14,7 @@ pub fn job_runner(tx: ThreadOut<String>) {
         loop {
             tx.send("hello world".to_string()).ok();
 
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(5000));
         }
 
     });

@@ -12,7 +12,6 @@ extern crate toml;
 #[macro_use]
 extern crate serde_derive;
 
-
 mod jobs;
 mod api;
 mod config;
@@ -22,6 +21,7 @@ use ws::{Sender, Message, Handler, Factory};
 use std::thread;
 use std::time::Duration;
 use std::sync::mpsc::channel;
+use std::sync::Arc;
 
 use std::fs::File;
 use rocket::response::content;
@@ -66,6 +66,8 @@ fn index() -> Option<content::Html<File>> {
 }
 
 fn main() {
+    let mut available_hosts: Arc<Vec<String>> = Arc::new(Vec::new());
+
     let me = ws::WebSocket::new(ServerFactory).unwrap();
 
     // Get a sender for ALL connections to the websocket
@@ -83,7 +85,30 @@ fn main() {
 
     // Get the hosts from the config file.
     let mut config = config::Config::new();
-    let _hosts = config.get_hosts().unwrap();
+    let hosts = config.get_hosts().unwrap();
+
+    // Check if the hosts are reachable.
+    for elem in hosts.iter() {
+        let elem_copy = elem.clone();
+        match api::check_host_availability(elem) {
+            Ok(_) => {
+                if let Some(av_mut) = Arc::get_mut(&mut available_hosts) {
+                    av_mut.push(elem_copy);
+                } else {
+                    panic!("Unable to modify available hosts.");
+                }
+            },
+            Err(e) => {
+                if e == "Client timed out while connecting.".to_string() {
+                    println!("The client timed out, host {} is unavailable.", elem);
+                } else {
+                    println!("An error occurred connecting while attempting to connect to {}: {}", elem, e);
+                }
+            }   
+        };
+    }
+
+    println!("Available Hosts: {:?}", available_hosts);
 
     // Spawn a thread to run job updates.
     jobs::job_runner(tx.clone());

@@ -25,11 +25,6 @@ impl Config {
         Config {
             toml: contents,
         }
-        
-        // if let Err(e) = file.read_to_string(&toml) {
-        //     println!("Encountered an error in get_hosts(): {}", e.to_string());
-        //     return Err("Failed to read file to string.".to_string())
-        // };
     }
 
     pub fn get_hosts (&mut self) -> Result<Vec<String>, String> {
