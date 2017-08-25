@@ -66,15 +66,21 @@ fn index() -> Option<content::Html<File>> {
 }
 
 fn main() {
+    // Set up an Arc container for the available hosts, so that multiple
+    // references to it can be active at once.
     let mut available_hosts: Arc<Vec<String>> = Arc::new(Vec::new());
 
+    // Initialize the websocket server.
     let me = ws::WebSocket::new(ServerFactory).unwrap();
 
     // Get a sender for ALL connections to the websocket
     let broadcaster = me.broadcaster();
 
     let server = thread::spawn(move || {
-        me.listen("127.0.0.1:80").unwrap();
+        match me.listen("127.0.0.1:80") {
+            Ok(server) => server,
+            Err(e) => panic!("Unable to start the websocket server: {}", e.to_string()),
+        }
     });
 
     thread::sleep(Duration::from_millis(10));
