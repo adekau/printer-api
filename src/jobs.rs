@@ -30,9 +30,9 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
     api::get_available_hosts(config, &available_hosts);
     let data = available_hosts.lock().unwrap();
 
-    (*data).iter().map(|host: &String| {
+    for host in (*data).iter() {
         println!("Host: {}", host);
-    }).collect();
+    }
 
     Ok(())
 }
