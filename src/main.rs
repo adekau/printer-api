@@ -23,7 +23,7 @@ use ws::{Sender, Message, Handler, Factory};
 use std::thread;
 use std::time::Duration;
 use std::sync::mpsc::channel;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use std::fs::File;
 use rocket::response::content;
@@ -67,13 +67,12 @@ fn index() -> Option<content::Html<File>> {
     File::open(&path).map(|f| content::Html(f)).ok()
 }
 
-// Set up an Arc container for the available hosts, so that multiple
-// references to it can be active at once.
-static mut available_hosts: Arc<Vec<String>> = Arc::new(Vec::new());
-static appconfig: Config = Config::new();
-
-
 fn main() {
+    // Set up an Arc container for the available hosts, so that multiple
+    // references to it can be active at once.
+    let mut available_hosts: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let appconfig: Config = Config::new();
+
     // Create a channels for communication between the job runner and
     // the broadcaster thread.
     let (tx, rx) = channel();
@@ -102,7 +101,7 @@ fn main() {
 
 
     // Spawn a thread to run job updates.
-    let job_runner = jobs::job_runner(&mut available_hosts, &appconfig, tx.clone());
+    let job_runner = jobs::job_runner(available_hosts.clone(), &appconfig, tx.clone());
 
 
     thread::spawn(move || {

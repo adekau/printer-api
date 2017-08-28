@@ -4,18 +4,17 @@ use std::time::Duration;
 use serde_json;
 use config::Config;
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use api;
 
-pub fn job_runner(mut available_hosts: &mut Arc<Vec<String>>, config: &Config, tx: ThreadOut<String>) {
+pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: &Config, tx: ThreadOut<String>) {
 
     thread::spawn(move || {
         // Setup the authentication.
-        auth_setup(available_hosts, config);
+        auth_setup(available_hosts.clone(), config);
 
         loop {
             tx.send("hello world".to_string()).ok();
-
             thread::sleep(Duration::from_millis(5000));
         }
 
@@ -24,7 +23,7 @@ pub fn job_runner(mut available_hosts: &mut Arc<Vec<String>>, config: &Config, t
 }
 
 // The hosts are already determined to be available or unavailable. 
-fn auth_setup (mut available_hosts: &mut Arc<Vec<String>>, config: &Config) -> io::Result<()> {
-    api::get_available_hosts(&config, &mut available_hosts);
+fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: &Config) -> io::Result<()> {
+    api::get_available_hosts(&config, available_hosts);
     Ok(())
 }
