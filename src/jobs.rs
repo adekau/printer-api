@@ -29,14 +29,18 @@ pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: 
 //         If false: generate the key then auth_check.
 fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::Result<()> {
     let conf = config.clone();
-    let conn = Connection::connect("postgres://Alex@127.0.0.1:5433/Alex", TlsMode::None)?;
+    let conn = Connection::connect("postgres://Alex@127.0.0.1:5432", TlsMode::None)?;
 
     api::get_available_hosts(config, &available_hosts);
     let data = available_hosts.lock().unwrap();
 
+    // redo this with just conn.query inside the loop
     let q = conn.prepare("SELECT * FROM auth WHERE application=$1 AND host=$2").unwrap();
     for host in (*data).iter() {
-        q.execute(&[&conf.application(), &host]).unwrap();
+        for row in &q.execute(&[&conf.application(), &host]).unwrap() {
+            let id: i32 = row.get(0);
+            println!("ID: {}", id);
+        }
         println!("Host: {}, Query: {:?}", host, q);
     }
 
