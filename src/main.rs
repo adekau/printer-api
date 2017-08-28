@@ -101,7 +101,7 @@ fn main() {
 
 
     // Spawn a thread to run job updates.
-    let job_runner = jobs::job_runner(available_hosts.clone(), &appconfig, tx.clone());
+    let job_runner = jobs::job_runner(available_hosts.clone(), appconfig.clone(), tx.clone());
 
 
     thread::spawn(move || {

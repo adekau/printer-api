@@ -11,7 +11,7 @@ use serde_json::{self, Value};
 use std::sync::{Arc, Mutex};
 use config::Config;
 
-pub fn get_available_hosts (config: &Config, available_hosts: Arc<Mutex<Vec<String>>>) {
+pub fn get_available_hosts (config: Config, available_hosts: Arc<Mutex<Vec<String>>>) {
     let hosts = config.get_hosts().unwrap();
 
     // Check if the hosts are reachable.

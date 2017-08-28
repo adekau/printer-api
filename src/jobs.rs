@@ -7,7 +7,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use api;
 
-pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: &Config, tx: ThreadOut<String>) {
+pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: ThreadOut<String>) {
 
     thread::spawn(move || {
         // Setup the authentication.
@@ -23,7 +23,7 @@ pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: &Config, tx:
 }
 
 // The hosts are already determined to be available or unavailable. 
-fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: &Config) -> io::Result<()> {
-    api::get_available_hosts(&config, available_hosts);
+fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::Result<()> {
+    api::get_available_hosts(config, available_hosts);
     Ok(())
 }
