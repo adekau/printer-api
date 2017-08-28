@@ -11,7 +11,7 @@ pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: 
 
     thread::spawn(move || {
         // Setup the authentication.
-        auth_setup(available_hosts, config);
+        auth_setup(available_hosts, config).expect("Did not setup properly");
 
         loop {
             tx.send("hello world".to_string()).ok();

@@ -16,7 +16,6 @@ pub fn get_available_hosts (config: Config, available_hosts: Arc<Mutex<Vec<Strin
 
     // Check if the hosts are reachable.
     for elem in hosts.iter() {
-        let elem_copy = elem.clone();
         match check_host_availability(elem) {
             Ok(_) => {
                 // if let Some(av_mut) = Arc::get_mut(&mut available_hosts) {

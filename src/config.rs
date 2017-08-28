@@ -2,18 +2,19 @@ use toml;
 use std::fs::File;
 use std::io::prelude::*;
 
+#[derive(Clone)]
 pub struct Config {
     parsed_config: ServerConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct ServerConfig {
     application: String,
     appuser: String,
     printers: Printers,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Printers {
     hosts: Vec<String>,
 }

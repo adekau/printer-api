@@ -70,7 +70,7 @@ fn index() -> Option<content::Html<File>> {
 fn main() {
     // Set up an Arc container for the available hosts, so that multiple
     // references to it can be active at once.
-    let mut available_hosts: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let available_hosts: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let appconfig: Config = Config::new();
 
     // Create a channels for communication between the job runner and
@@ -101,7 +101,7 @@ fn main() {
 
 
     // Spawn a thread to run job updates.
-    let job_runner = jobs::job_runner(available_hosts.clone(), appconfig.clone(), tx.clone());
+    jobs::job_runner(available_hosts.clone(), appconfig.clone(), tx.clone());
 
 
     thread::spawn(move || {
