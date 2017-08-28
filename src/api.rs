@@ -10,7 +10,10 @@ use std::time::Duration;
 use serde_json::{self, Value};
 
 pub fn check_host_availability (host: &String) -> Result<(), String> {
-    let mut core = Core::new().unwrap();
+    let mut core = match Core::new() {
+        Ok(core) => core,
+        Err(e) => return Err(e.to_string()),
+    };
     let handle = core.handle();
     let client = Client::new(&handle);
 
@@ -18,9 +21,7 @@ pub fn check_host_availability (host: &String) -> Result<(), String> {
     let uri = copy_uri.parse().unwrap();
     let timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(10), &handle).unwrap();
 
-    let request = client.get(uri).map(|res| {
-        println!("Connected to host {}: {}", copy_uri, res.status());
-    });
+    let request = client.get(uri);
 
     let work = request.select2(timeout).then(|res| match res {
         Ok(Either::A((got, _timeout))) => Ok(got),
@@ -36,16 +37,17 @@ pub fn check_host_availability (host: &String) -> Result<(), String> {
 
     match core.run(work) {
         Ok(_) => Ok(()),
-        Err(e) => {println!("{:?}", e.to_string()); return Err(e.to_string());},
+        Err(e) => { println!("Error checking host availability: {:?}", 
+            e.to_string()); return Err(e.to_string()); },
     }
 }
 
-pub fn auth_request () -> Value {
+pub fn auth_request (host: String, application: String, appuser: String) -> io::Result<Value> {
     let mut core = Core::new().unwrap();
     let client = Client::new(&core.handle());
     
-    let json = r#"{"application":"printmgr","user":"printmgr"}"#;
-    let uri = "http://141.218.24.102/api/v1/auth/request".parse().unwrap();
+    let json = format!(r#"{{"application":"{}","user":"{}"}}"#, application, appuser);
+    let uri = format!("http://{}/api/v1/auth/request", host)[..].parse().unwrap();
 
     let mut req = Request::new(Method::Post, uri);
     req.headers_mut().set(ContentType::json());
@@ -54,17 +56,23 @@ pub fn auth_request () -> Value {
 
     let post = client.request(req).and_then(|res| {
         res.body().concat2().and_then(move |body| {
-            let v: Value = serde_json::from_slice(&body).map_err(|e| {
+            let v: Value = match serde_json::from_slice(&body).map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::Other,
                     e
                 )
-            }).unwrap();
+            }) {
+                Ok(res) => res,
+                Err(e) => panic!("Error parsing JSON response: {}", e),
+            };
             Ok(v)
         })
     });
 
-    let post_result = core.run(post).unwrap();
+    let post_result = match core.run(post) {
+        Ok(result) => result,
+        Err(e) => panic!("Error core.run: {}", e),
+    };
 
-    post_result
+    Ok(post_result)
 }

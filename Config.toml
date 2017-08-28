@@ -1,3 +1,6 @@
+application = "printmgr"
+appuser = "printmgr"
+
 [printers]
 hosts = [
     "141.218.24.102",

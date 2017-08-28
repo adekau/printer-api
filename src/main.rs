@@ -16,6 +16,9 @@ mod jobs;
 mod api;
 mod config;
 
+use config::Config;
+use jobs::JobDispatcher;
+
 use ws::{Sender, Message, Handler, Factory};
 
 use std::thread;
@@ -70,8 +73,15 @@ fn main() {
     // references to it can be active at once.
     let mut available_hosts: Arc<Vec<String>> = Arc::new(Vec::new());
 
-    // Initialize the websocket server.
-    let me = ws::WebSocket::new(ServerFactory).unwrap();
+    // Create a channels for communication between the job runner and
+    // the broadcaster thread.
+    let (tx, rx) = channel();
+
+    // Initialize the websocket server. TODO ERROR HANDLE.
+    let me = match ws::WebSocket::new(ServerFactory) { 
+        Ok(ws) => ws,
+        Err(e) => panic!("Unable to create websocket: {}", e.to_string()),
+    };
 
     // Get a sender for ALL connections to the websocket
     let broadcaster = me.broadcaster();
@@ -85,12 +95,43 @@ fn main() {
 
     thread::sleep(Duration::from_millis(10));
 
-    // Create a channels for communication between the job runner and
-    // the broadcaster thread.
-    let (tx, rx) = channel();
-
     // Get the hosts from the config file.
-    let mut config = config::Config::new();
+    let config = Config::new();
+    get_available_hosts(&config, &mut available_hosts);
+
+    //TODO: Remove these, just to shut warnings up.
+    println!("{:?}", available_hosts);
+    println!("{} {}", config.application(), config.appuser());
+
+
+    // Spawn a thread to run job updates.
+    let job_runner = JobDispatcher::new(&config, tx.clone());
+
+
+    thread::spawn(move || {
+        while let Ok(data) = rx.recv() {
+            println!("Received data {}", data);
+            broadcaster.send(data).unwrap();
+        }
+    });
+
+    rocket().launch();
+
+    // in case rocket fails somehow..
+    println!("Rocket crashed.");
+    server.join().unwrap();
+}
+
+// Returns an instance of Rocket with the correct routes and config.
+fn rocket() -> rocket::Rocket {
+    rocket::ignite()
+        .mount("/",
+        routes![
+            index,
+        ])
+}
+
+fn get_available_hosts (config: &Config, mut available_hosts: &mut Arc<Vec<String>>) {
     let hosts = config.get_hosts().unwrap();
 
     // Check if the hosts are reachable.
@@ -113,22 +154,4 @@ fn main() {
             }   
         };
     }
-
-    println!("Available Hosts: {:?}", available_hosts);
-
-    // Spawn a thread to run job updates.
-    jobs::job_runner(tx.clone());
-
-    thread::spawn(move || {
-        while let Ok(data) = rx.recv() {
-            println!("Received data {}", data);
-            broadcaster.send(data).unwrap();
-        }
-    });
-
-    rocket::ignite().mount("/", routes![index]).launch();
-
-    // in case rocket fails somehow..
-    println!("Rocket crashed.");
-    server.join().unwrap();
 }
