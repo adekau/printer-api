@@ -15,7 +15,7 @@ pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: 
 
         loop {
             tx.send("hello world".to_string()).ok();
-            thread::sleep(Duration::from_millis(5000));
+            thread::sleep(Duration::from_secs(5));
         }
 
     });
