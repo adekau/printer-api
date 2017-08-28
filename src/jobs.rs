@@ -5,6 +5,7 @@ use serde_json;
 use config::Config;
 use std::io;
 use std::sync::{Arc, Mutex};
+use postgres::{Connection, TlsMode};
 use api;
 
 pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: ThreadOut<String>) {
@@ -27,11 +28,16 @@ pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: 
 // Step 3: If true: auth_check
 //         If false: generate the key then auth_check.
 fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::Result<()> {
+    let conf = config.clone();
+    let conn = Connection::connect("postgres://Alex@127.0.0.1:5433/Alex", TlsMode::None)?;
+
     api::get_available_hosts(config, &available_hosts);
     let data = available_hosts.lock().unwrap();
 
+    let q = conn.prepare("SELECT * FROM auth WHERE application=$1 AND host=$2").unwrap();
     for host in (*data).iter() {
-        println!("Host: {}", host);
+        q.execute(&[&conf.application(), &host]).unwrap();
+        println!("Host: {}, Query: {:?}", host, q);
     }
 
     Ok(())
