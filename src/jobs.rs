@@ -22,8 +22,13 @@ pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: 
 
 }
 
-// The hosts are already determined to be available or unavailable. 
+// Step 1: Determine the available hosts.
+// Step 2: For each host, check if the hosts already have keys in the database.
+// Step 3: If true: auth_check
+//         If false: generate the key then auth_check.
 fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::Result<()> {
-    api::get_available_hosts(config, available_hosts);
+    api::get_available_hosts(config, &available_hosts);
+    let data = available_hosts.lock().unwrap();
+    println!("Data: {:?}", *data);
     Ok(())
 }

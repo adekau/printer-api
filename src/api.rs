@@ -11,18 +11,16 @@ use serde_json::{self, Value};
 use std::sync::{Arc, Mutex};
 use config::Config;
 
-pub fn get_available_hosts (config: Config, available_hosts: Arc<Mutex<Vec<String>>>) {
+pub fn get_available_hosts (config: Config, available_hosts: &Arc<Mutex<Vec<String>>>) {
     let hosts = config.get_hosts().unwrap();
 
     // Check if the hosts are reachable.
     for elem in hosts.iter() {
+        let elem_copy = elem.clone();
         match check_host_availability(elem) {
             Ok(_) => {
-                // if let Some(av_mut) = Arc::get_mut(&mut available_hosts) {
-                //     av_mut.push(elem_copy);
-                // } else {
-                //     panic!("Unable to modify available hosts.");
-                // }
+                let mut lock = available_hosts.lock().unwrap();
+                (*lock).push(elem_copy);
             },
             Err(e) => {
                 if e == "Client timed out while connecting.".to_string() {
