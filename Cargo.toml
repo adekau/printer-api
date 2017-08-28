@@ -1,7 +1,7 @@
 [package]
 name = "printer-api"
 version = "0.1.0"
-authors = ["Alex Dekau <alex.potatofarms@gmail.com>"]
+authors = ["Alex Dekau"]
 
 [dependencies]
 rocket = "0.3.2"

@@ -8,6 +8,33 @@ use tokio_core;
 use std::str;
 use std::time::Duration;
 use serde_json::{self, Value};
+use std::sync::Arc;
+use config::Config;
+
+pub fn get_available_hosts (config: &Config, mut available_hosts: &mut Arc<Vec<String>>) {
+    let hosts = config.get_hosts().unwrap();
+
+    // Check if the hosts are reachable.
+    for elem in hosts.iter() {
+        let elem_copy = elem.clone();
+        match check_host_availability(elem) {
+            Ok(_) => {
+                if let Some(av_mut) = Arc::get_mut(&mut available_hosts) {
+                    av_mut.push(elem_copy);
+                } else {
+                    panic!("Unable to modify available hosts.");
+                }
+            },
+            Err(e) => {
+                if e == "Client timed out while connecting.".to_string() {
+                    println!("The client timed out, host {} is unavailable.", elem);
+                } else {
+                    println!("An error occurred connecting while attempting to connect to {}: {}", elem, e);
+                }
+            }   
+        };
+    }
+}
 
 pub fn check_host_availability (host: &String) -> Result<(), String> {
     let mut core = match Core::new() {

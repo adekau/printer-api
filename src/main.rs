@@ -17,7 +17,6 @@ mod api;
 mod config;
 
 use config::Config;
-use jobs::JobDispatcher;
 
 use ws::{Sender, Message, Handler, Factory};
 
@@ -68,11 +67,13 @@ fn index() -> Option<content::Html<File>> {
     File::open(&path).map(|f| content::Html(f)).ok()
 }
 
-fn main() {
-    // Set up an Arc container for the available hosts, so that multiple
-    // references to it can be active at once.
-    let mut available_hosts: Arc<Vec<String>> = Arc::new(Vec::new());
+// Set up an Arc container for the available hosts, so that multiple
+// references to it can be active at once.
+static mut available_hosts: Arc<Vec<String>> = Arc::new(Vec::new());
+static appconfig: Config = Config::new();
 
+
+fn main() {
     // Create a channels for communication between the job runner and
     // the broadcaster thread.
     let (tx, rx) = channel();
@@ -95,17 +96,13 @@ fn main() {
 
     thread::sleep(Duration::from_millis(10));
 
-    // Get the hosts from the config file.
-    let config = Config::new();
-    get_available_hosts(&config, &mut available_hosts);
-
     //TODO: Remove these, just to shut warnings up.
     println!("{:?}", available_hosts);
-    println!("{} {}", config.application(), config.appuser());
+    println!("{} {}", appconfig.application(), appconfig.appuser());
 
 
     // Spawn a thread to run job updates.
-    let job_runner = JobDispatcher::new(&config, tx.clone());
+    let job_runner = jobs::job_runner(&mut available_hosts, &appconfig, tx.clone());
 
 
     thread::spawn(move || {
@@ -129,29 +126,4 @@ fn rocket() -> rocket::Rocket {
         routes![
             index,
         ])
-}
-
-fn get_available_hosts (config: &Config, mut available_hosts: &mut Arc<Vec<String>>) {
-    let hosts = config.get_hosts().unwrap();
-
-    // Check if the hosts are reachable.
-    for elem in hosts.iter() {
-        let elem_copy = elem.clone();
-        match api::check_host_availability(elem) {
-            Ok(_) => {
-                if let Some(av_mut) = Arc::get_mut(&mut available_hosts) {
-                    av_mut.push(elem_copy);
-                } else {
-                    panic!("Unable to modify available hosts.");
-                }
-            },
-            Err(e) => {
-                if e == "Client timed out while connecting.".to_string() {
-                    println!("The client timed out, host {} is unavailable.", elem);
-                } else {
-                    println!("An error occurred connecting while attempting to connect to {}: {}", elem, e);
-                }
-            }   
-        };
-    }
 }
