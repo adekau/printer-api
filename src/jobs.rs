@@ -41,13 +41,6 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
         // TODO: Check error types on this with the docs, then add error checking.
         let p = conn.query("SELECT * FROM auth WHERE application=$1 AND host=$2", &[&conf.application(), &host]).unwrap();
 
-        // Auth Keys should maybe be a vec of AuthKey structs with the following components:
-        // - Host
-        // - Id
-        // - Key
-        // - Status (AuthKeyStatus::Authorized, AuthKeyStatus::Unknown, AuthKeyStatus::Unauthorized)
-        // AuthKeyStatus::Unauthorized means that the key will need to be regenerated and that host should
-        // not be contacted in future data retrieval steps.
         if p.len() > 0 {
             // Extract the information from the database.
             for row in &p {
@@ -68,7 +61,7 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
             let appkey: String = serde_json::from_value(auth["key"].clone()).unwrap();
             
             // Now store it in the database.
-            let store = conn.execute("
+            if let Err(e) = conn.execute("
                 INSERT INTO auth(appuser, application, host, appid, appkey)
                 VALUES($1, $2, $3, $4, $5)
                 ON CONFLICT (application, host)
@@ -79,9 +72,11 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
                 host,
                 &appid,
                 &appkey
-            ]).unwrap();
-
-            println!("Store result: {:?}", store);
+            ]) {
+                println!("An error occurred inserting data into the database.
+                The data is:\n APPUSER: {}, APPLICATION: {}, HOST: {}, ID: {}, KEY: {}\n
+                Error:\n {}", &conf.appuser(), &conf.application(), host, &appid, &appkey, e.to_string());
+            };
         }
     }
 
