@@ -65,6 +65,11 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
             let appid: String = serde_json::from_value(auth["id"].clone()).unwrap();
             let appkey: String = serde_json::from_value(auth["key"].clone()).unwrap();
             
+            let insert = AuthKey::new(host.clone(), appid.clone(), appkey.clone());
+            // lock the mutex
+            let mut data = host_auth.lock().unwrap();
+            (*data).push(insert);
+
             // Now store it in the database.
             if let Err(e) = conn.execute("
                 INSERT INTO auth(appuser, application, host, appid, appkey)
