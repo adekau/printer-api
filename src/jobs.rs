@@ -37,6 +37,7 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
     println!("Available Hosts: {:?}", *data);
 
     for host in (*data).iter() {
+        // TODO: Check error types on this with the docs, then add error checking.
         let p = conn.query("SELECT * FROM auth WHERE application=$1 AND host=$2", &[&conf.application(), &host]).unwrap();
 
         // Auth Keys should maybe be a vec of AuthKey structs with the following components:
@@ -46,7 +47,6 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
         // - Status (AuthKeyStatus::Authorized, AuthKeyStatus::Unknown, AuthKeyStatus::Unauthorized)
         // AuthKeyStatus::Unauthorized means that the key will need to be regenerated and that host should
         // not be contacted in future data retrieval steps.
-
         if p.len() > 0 {
             for row in &p {
                 let host: String = row.get(3);
@@ -55,10 +55,11 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
                 println!("HOST: {:?} ID: {:?}, KEY: {:?}", host, id, key);
             }
         } else {
-            // Generate a key and store it in database and data structure here.
+            // Generate a key and store it in database and vec (mentioned above) here.
         }
     }
 
+    // Does this need to return anything? Probably not. TODO: Re-evaluate this later.
     Ok(())
 }
 
