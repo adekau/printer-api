@@ -18,6 +18,7 @@ mod api;
 mod config;
 mod auth_key;
 
+use auth_key::AuthKey;
 use config::Config;
 
 use ws::{Sender, Message, Handler, Factory};
@@ -73,6 +74,7 @@ fn main() {
     // Set up an Arc container for the available hosts, so that multiple
     // references to it can be active at once.
     let available_hosts: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let host_auth: Arc<Mutex<Vec<AuthKey>>> = Arc::new(Mutex::new(Vec::new()));
     let appconfig: Config = Config::new();
 
     // Create a channels for communication between the job runner and
@@ -102,7 +104,7 @@ fn main() {
 
 
     // Spawn a thread to run job updates.
-    jobs::job_runner(available_hosts.clone(), appconfig.clone(), tx.clone());
+    jobs::job_runner(available_hosts.clone(), host_auth.clone(), appconfig.clone(), tx.clone());
 
 
     thread::spawn(move || {
