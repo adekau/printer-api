@@ -49,9 +49,7 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
         // not be contacted in future data retrieval steps.
         if p.len() > 0 {
             for row in &p {
-                let host: String = row.get(3);
-                let id: String = row.get(4);
-                let key: String = row.get(5);
+                let (host, id, key): (String, String, String) = (row.get(3), row.get(4), row.get(5));
                 println!("HOST: {:?} ID: {:?}, KEY: {:?}", host, id, key);
             }
         } else {
