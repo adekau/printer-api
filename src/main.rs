@@ -16,6 +16,7 @@ extern crate postgres;
 mod jobs;
 mod api;
 mod config;
+mod auth_key;
 
 use config::Config;
 

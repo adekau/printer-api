@@ -7,6 +7,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use postgres::{Connection, TlsMode};
 use api;
+use auth_key::{AuthKey, AuthKeyStatus};
 
 pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>, config: Config, tx: ThreadOut<String>) {
 
@@ -48,12 +49,39 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, config: Config) -> io::
         // AuthKeyStatus::Unauthorized means that the key will need to be regenerated and that host should
         // not be contacted in future data retrieval steps.
         if p.len() > 0 {
+            // Extract the information from the database.
             for row in &p {
                 let (host, id, key): (String, String, String) = (row.get(3), row.get(4), row.get(5));
                 println!("HOST: {:?} ID: {:?}, KEY: {:?}", host, id, key);
             }
         } else {
-            // Generate a key and store it in database and vec (mentioned above) here.
+            // Generate a key and store it in database.
+            println!("HOST {}: Generating key.", host);
+
+            let auth = api::auth_request(host.clone(),
+                conf.application().clone(), conf.appuser().clone()).unwrap();
+            
+            println!("HOST {}: Generated key with ID: {}, KEY: {}", host, auth["id"], auth["key"]);
+
+            // Convert the serde_json values returned to Strings.
+            let appid: String = serde_json::from_value(auth["id"].clone()).unwrap();
+            let appkey: String = serde_json::from_value(auth["key"].clone()).unwrap();
+            
+            // Now store it in the database.
+            let store = conn.execute("
+                INSERT INTO auth(appuser, application, host, appid, appkey)
+                VALUES($1, $2, $3, $4, $5)
+                ON CONFLICT (application, host)
+                DO UPDATE SET appuser=$1, host=$3, appid=$4, appkey=$5
+            ", &[
+                conf.appuser(),
+                conf.application(),
+                host,
+                &appid,
+                &appkey
+            ]).unwrap();
+
+            println!("Store result: {:?}", store);
         }
     }
 
