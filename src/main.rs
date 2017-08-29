@@ -97,7 +97,6 @@ fn main() {
     thread::sleep(Duration::from_millis(10));
 
     //TODO: Remove these, just to shut warnings up.
-    println!("{:?}", available_hosts);
     println!("{} {}", appconfig.application(), appconfig.appuser());
 
 
