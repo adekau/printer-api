@@ -10,6 +10,8 @@ use std::time::Duration;
 use serde_json::{self, Value};
 use std::sync::{Arc, Mutex};
 use config::Config;
+use std::thread::{self, JoinHandle};
+use auth_key::AuthKey;
 
 pub fn get_available_hosts (config: Config, available_hosts: &Arc<Mutex<Vec<String>>>) {
     let hosts = config.get_hosts().unwrap();
@@ -99,4 +101,44 @@ pub fn auth_request (host: String, application: String, appuser: String) -> io::
     };
 
     Ok(post_result)
+}
+
+// Spawn a thread to auth check a host.
+// TODO: This should probably return a result for error checking.
+pub fn auth_check_all (host_auth: Arc<Mutex<Vec<AuthKey>>>) -> io::Result<()> {
+    let data = match host_auth.lock() {
+        Ok(data) => data,
+        Err(e) => return Err(io::Error::new(io::ErrorKind::Other, "Couldn't lock host_auth")),  
+    };
+    let mut handles: Vec<JoinHandle<_>> = Vec::new();
+
+    for host in (*data).iter() {
+        // Clone to make lifetime 'static for thread::spawn
+        let (host, id) = (host.host().clone(), host.id().clone());
+
+        // Note: This will panic if the OS fails to make the thread.
+        // Use a thread Builder to error handle if needed.
+        let handle = thread::spawn(move || {
+            if let Err(e) = auth_check(&host, &id) {
+                return Err(e);   
+            };
+            Ok(())
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        if let Err(e) = handle.join() {
+            println!("Thread handle encountered an error: {:?}", e);   
+        };
+    }
+
+    Ok(())
+}
+
+// Contact the host (http://{host}/api/v1/auth/check/{id})
+pub fn auth_check (host: &String, id: &String) -> io::Result<()> {
+    println!("Inside thread! {} {}", host, id);
+    Ok(())
 }
