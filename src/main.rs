@@ -3,7 +3,6 @@
 
 extern crate rocket;
 extern crate ws;
-extern crate env_logger;
 extern crate futures;
 extern crate hyper;
 extern crate tokio_core;

@@ -39,28 +39,28 @@ impl AuthKey {
         &self.id
     }
 
-    pub fn key (&self) -> &String {
-        &self.key
-    }
+    // pub fn key (&self) -> &String {
+    //     &self.key
+    // }
 
-    pub fn status (&self) -> &AuthKeyStatus {
-        &self.status
-    }
+    // pub fn status (&self) -> &AuthKeyStatus {
+    //     &self.status
+    // }
 
     // Mutable Getter Functions
-    pub fn host_mut (&mut self) -> &mut String {
-        &mut self.host
-    }
+    // pub fn host_mut (&mut self) -> &mut String {
+    //     &mut self.host
+    // }
 
-    pub fn id_mut (&mut self) -> &mut String {
-        &mut self.id
-    }
+    // pub fn id_mut (&mut self) -> &mut String {
+    //     &mut self.id
+    // }
 
-    pub fn key_mut (&mut self) -> &mut String {
-        &mut self.key
-    }
+    // pub fn key_mut (&mut self) -> &mut String {
+    //     &mut self.key
+    // }
 
-    pub fn status_mut (&mut self) -> &mut AuthKeyStatus {
-        &mut self.status
-    }
+    // pub fn status_mut (&mut self) -> &mut AuthKeyStatus {
+    //     &mut self.status
+    // }
 }

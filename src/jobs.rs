@@ -7,7 +7,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use postgres::{Connection, TlsMode};
 use api;
-use auth_key::{AuthKey, AuthKeyStatus};
+use auth_key::AuthKey;
 
 pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>,
 host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) {
@@ -33,8 +33,8 @@ fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>,
 host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
     let conf = config.clone();
     let conn = Connection::connect("postgres://Alex@127.0.0.1:5432", TlsMode::None)?;
-
-    api::get_available_hosts(config, &available_hosts);
+    let mut api = api::Api::new();
+    api.get_available_hosts(&available_hosts);
     let data = available_hosts.lock().unwrap();
 
     println!("Available Hosts: {:?}", *data);
@@ -56,8 +56,7 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
             // Generate a key and store it in database.
             println!("HOST {}: Generating key.", host);
 
-            let auth = api::auth_request(host.clone(),
-                conf.application().clone(), conf.appuser().clone()).unwrap();
+            let auth = api.auth_request(host.clone()).unwrap();
             
             println!("HOST {}: Generated key with ID: {}, KEY: {}", host, auth["id"], auth["key"]);
 
@@ -82,7 +81,7 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
                 host,
                 &appid,
                 &appkey
-            ]) {
+            ]) { // If there is an errror.
                 println!("An error occurred inserting data into the database.
                 The data is:\n APPUSER: {}, APPLICATION: {}, HOST: {}, ID: {}, KEY: {}\n
                 Error:\n {}", &conf.appuser(), &conf.application(), host, &appid, &appkey, e.to_string());
@@ -91,7 +90,7 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
     }
 
     // Now check the hosts for authorization.
-    api::auth_check_all(host_auth);
+    api.auth_check_all(host_auth).unwrap();
 
     // Does this need to return anything? Probably not. TODO: Re-evaluate this later.
     Ok(())
