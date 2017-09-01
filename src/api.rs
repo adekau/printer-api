@@ -43,7 +43,9 @@ impl Api {
         // Check if the hosts are reachable.
         for elem in hosts.iter() {
             let elem_copy = elem.clone();
-            match self.check_host_availability(elem) {
+            let core_ref = &mut self.core;
+            let client_ref = &self.client;
+            match check_host_availability(core_ref, client_ref, elem) {
                 Ok(_) => {
                     let mut lock = available_hosts.lock().unwrap();
                     (*lock).push(elem_copy);
@@ -56,32 +58,6 @@ impl Api {
                     }
                 }   
             };
-        }
-    }
-
-    pub fn check_host_availability (&mut self, host: &String) -> Result<(), String> {
-        let copy_uri = format!("http://{}", host);
-        let uri = copy_uri.parse().unwrap();
-        let timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(10), &self.core.handle()).unwrap();
-
-        let request = self.client.get(uri);
-
-        let work = request.select2(timeout).then(|res| match res {
-            Ok(Either::A((got, _timeout))) => Ok(got),
-            Ok(Either::B((_timeout_error, _get))) => {
-                Err(hyper::Error::Io(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "Client timed out while connecting.",
-                )))
-            },
-            Err(Either::A((get_error, _timeout))) => Err(get_error),
-            Err(Either::B((timeout_error, _get))) => Err(From::from(timeout_error)),
-        });
-
-        match self.core.run(work) {
-            Ok(_) => Ok(()),
-            Err(e) => { println!("Error checking host availability: {:?}", 
-                e.to_string()); return Err(e.to_string()); },
         }
     }
 
@@ -122,7 +98,7 @@ impl Api {
 
     // Spawn a thread to auth check a host.
     // TODO: This should probably return a result for error checking.
-    pub fn auth_check_all (&self, host_auth: Arc<Mutex<Vec<AuthKey>>>) -> io::Result<()> {
+    pub fn auth_check_all (&mut self, host_auth: Arc<Mutex<Vec<AuthKey>>>) -> io::Result<()> {
         let data = match host_auth.lock() {
             Ok(data) => data,
             Err(_) => return Err(io::Error::new(io::ErrorKind::Other, "Couldn't lock host_auth")),  
@@ -132,11 +108,12 @@ impl Api {
         for host in (*data).iter() {
             // Clone to make lifetime 'static for thread::spawn
             let (host, id) = (host.host().clone(), host.id().clone());
-
+            let core_ref = &mut self.core;
+            let client_ref = &self.client;
             // Note: This will panic if the OS fails to make the thread.
             // Use a thread Builder to error handle if needed.
             let handle = thread::spawn(move || {
-                if let Err(e) = auth_check(&host, &id) {
+                if let Err(e) = auth_check(&host, &id, core_ref, client_ref) {
                     return Err(e);   
                 };
                 Ok(())
@@ -156,6 +133,51 @@ impl Api {
 }
 
     // Contact the host (http://{host}/api/v1/auth/check/{id})
-fn auth_check (host: &String, id: &String) -> io::Result<()> {
+fn auth_check (host: &String, id: &String, core: &mut Core, 
+client: &Client<HttpConnector>) -> io::Result<()> {
+    let copy_uri = format!("http://{}/api/v1/auth/check/{}", host, id);
+    let uri = copy_uri.parse().unwrap();
+    let timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(10), &core.handle()).unwrap();
+    let request = client.get(uri).map(|res| {
+        println!("Got status: {}", res.status());
+    });
+    let work = request.select2(timeout).then(|res| match res {
+        Ok(Either::A((got, _timeout))) => Ok(got),
+        Ok(Either::B((_timeout_error, _get))) => {
+            Err(hyper::Error::Io(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Client timed out while connecting.",
+            )))
+        },
+        Err(Either::A((get_error, _timeout))) => Err(get_error),
+        Err(Either::B((timeout_error, _get))) => Err(From::from(timeout_error)),
+    });
     Ok(())
+}
+
+pub fn check_host_availability (core: &mut Core, client: &Client<HttpConnector>,
+host: &String) -> Result<(), String> {
+    let copy_uri = format!("http://{}", host);
+    let uri = copy_uri.parse().unwrap();
+    let timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(10), &core.handle()).unwrap();
+
+    let request = client.get(uri);
+
+    let work = request.select2(timeout).then(|res| match res {
+        Ok(Either::A((got, _timeout))) => Ok(got),
+        Ok(Either::B((_timeout_error, _get))) => {
+            Err(hyper::Error::Io(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Client timed out while connecting.",
+            )))
+        },
+        Err(Either::A((get_error, _timeout))) => Err(get_error),
+        Err(Either::B((timeout_error, _get))) => Err(From::from(timeout_error)),
+    });
+
+    match core.run(work) {
+        Ok(_) => Ok(()),
+        Err(e) => { println!("Error checking host availability: {:?}", 
+            e.to_string()); return Err(e.to_string()); },
+    }
 }
