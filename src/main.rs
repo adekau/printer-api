@@ -3,10 +3,7 @@
 
 extern crate rocket;
 extern crate ws;
-extern crate futures;
-extern crate hyper;
-extern crate tokio_core;
-extern crate serde_json;
+extern crate reqwest;
 extern crate toml;
 #[macro_use]
 extern crate serde_derive;

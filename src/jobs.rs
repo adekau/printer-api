@@ -1,9 +1,7 @@
 use std::sync::mpsc::Sender as ThreadOut;
 use std::thread;
 use std::time::Duration;
-use serde_json;
 use config::Config;
-use std::io;
 use std::sync::{Arc, Mutex};
 use postgres::{Connection, TlsMode};
 use api;
@@ -12,7 +10,7 @@ use auth_key::AuthKey;
 pub fn job_runner(available_hosts: Arc<Mutex<Vec<String>>>,
 host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) {
 
-    thread::spawn(move || {
+    thread::Builder::new().name("Job_Runner".to_string()).spawn(move || {
         // Setup the authentication. Note it will panic if something errors.
         auth_setup(available_hosts, host_auth, config).expect("Did not setup properly");
 
@@ -21,7 +19,7 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) {
             thread::sleep(Duration::from_secs(5));
         }
 
-    });
+    }).unwrap();
 
 }
 
@@ -30,9 +28,13 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) {
 // Step 3: If true: auth_check
 //         If false: generate the key then auth_check.
 fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, 
-host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
+host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> Result<(), String> {
     let conf = config.clone();
-    let conn = Connection::connect("postgres://Alex@127.0.0.1:5432", TlsMode::None)?;
+    let conn = match Connection::connect("postgres://Alex@127.0.0.1:5432", TlsMode::None)
+    {
+        Ok(conn) => conn,
+        Err(e) => return Err(format!("Database: {}", e.to_string())),
+    };
     let mut api = api::Api::new();
     api.get_available_hosts(&available_hosts);
     let data = available_hosts.lock().unwrap();
@@ -58,12 +60,14 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> io::Result<()> {
 
             let auth = api.auth_request(host.clone()).unwrap();
             
-            println!("HOST {}: Generated key with ID: {}, KEY: {}", host, auth["id"], auth["key"]);
+            println!("HOST {}: Generated key with ID: {}, KEY: {}", host, auth.id, auth.key);
 
             // Convert the serde_json values returned to Strings.
-            let appid: String = serde_json::from_value(auth["id"].clone()).unwrap();
-            let appkey: String = serde_json::from_value(auth["key"].clone()).unwrap();
-            
+            // let appid: String = serde_json::from_value(auth["id"].clone()).unwrap();
+            // let appkey: String = serde_json::from_value(auth["key"].clone()).unwrap();
+            let appid = auth.id;
+            let appkey = auth.key;
+
             let insert = AuthKey::new(host.clone(), appid.clone(), appkey.clone());
             // lock the mutex
             let mut data = host_auth.lock().unwrap();
