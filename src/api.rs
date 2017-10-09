@@ -1,4 +1,4 @@
-use std::io::{self, stdout, copy};
+use std::io;
 use std::collections::HashMap;
 use std::str;
 use std::time::Duration;
@@ -12,6 +12,11 @@ use auth_key::AuthKey;
 pub struct AuthResponse {
     pub id: String,
     pub key: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AuthCheckResponse {
+    pub message: String,
 }
 
 pub struct Api {
@@ -131,24 +136,30 @@ impl Api {
 }
 
     // Contact the host (http://{host}/api/v1/auth/check/{id})
-fn auth_check (host: &String, id: &String) -> io::Result<()> {
-    // let copy_uri = format!("http://{}/api/v1/auth/check/{}", host, id);
-    // let uri = copy_uri.parse().unwrap();
-    // let timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(10), &core.handle()).unwrap();
-    // let request = client.get(uri).map(|res| {
-    //     println!("Got status: {}", res.status());
-    // });
-    // let work = request.select2(timeout).then(|res| match res {
-    //     Ok(Either::A((got, _timeout))) => Ok(got),
-    //     Ok(Either::B((_timeout_error, _get))) => {
-    //         Err(hyper::Error::Io(io::Error::new(
-    //             io::ErrorKind::TimedOut,
-    //             "Client timed out while connecting.",
-    //         )))
-    //     },
-    //     Err(Either::A((get_error, _timeout))) => Err(get_error),
-    //     Err(Either::B((timeout_error, _get))) => Err(From::from(timeout_error)),
-    // });
+fn auth_check (host: &String, id: &String) -> Result<(), String> {
+    let copy_uri = format!("http://{}/api/v1/auth/check/{}", host, id);
+    let uri: reqwest::Url = copy_uri.parse().unwrap();
+
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+    {
+        Ok(client) => client,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let mut response = match client.get(uri).send() {
+        Ok(res) => res,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let rr: AuthCheckResponse = match response.json() {
+        Ok(r) => r,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    println!("{}", rr.message);
+
     Ok(())
 }
 
