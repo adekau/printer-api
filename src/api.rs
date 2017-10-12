@@ -6,7 +6,7 @@ use reqwest;
 use std::sync::{Arc, Mutex};
 use config::Config;
 use std::thread::{self, JoinHandle};
-use auth_key::AuthKey;
+use auth_key::{AuthKey,AuthKeyStatus};
 
 #[derive(Deserialize, Debug)]
 pub struct AuthResponse {
@@ -102,32 +102,44 @@ impl Api {
     }
 
     // Spawn a thread to auth check a host.
-    // TODO: This should probably return a result for error checking.
     pub fn auth_check_all (&mut self, host_auth: Arc<Mutex<Vec<AuthKey>>>) -> io::Result<()> {
-        let data = match host_auth.lock() {
+        let mut data = match host_auth.lock() {
             Ok(data) => data,
             Err(_) => return Err(io::Error::new(io::ErrorKind::Other, "Couldn't lock host_auth")),  
         };
-        let mut handles: Vec<JoinHandle<_>> = Vec::new();
+        let mut handles: Vec<JoinHandle<Result<(String, AuthKeyStatus), String>>> = Vec::new();
 
         for host in (*data).iter() {
             // Clone to make lifetime 'static for thread::spawn
             let (host, id) = (host.host().clone(), host.id().clone());
             // Note: This will panic if the OS fails to make the thread.
             // Use a thread Builder to error handle if needed.
-            let handle = thread::spawn(move || {
-                if let Err(e) = auth_check(&host, &id) {
-                    return Err(e);   
+            let handle: JoinHandle<Result<(String, AuthKeyStatus), String>> = thread::spawn(move || {
+                let result: AuthKeyStatus = match auth_check(&host, &id) {
+                    Ok(result) => result,
+                    Err(e) => return Err(e),
                 };
-                Ok(())
+                
+                Ok((host, result))
             });
 
             handles.push(handle);
         }
 
         for handle in handles {
-            if let Err(e) = handle.join() {
-                println!("Thread handle encountered an error: {:?}", e);   
+            match handle.join() {
+                Ok(Ok((thost, result))) => {
+
+                    for host in (*data).iter_mut() {
+                        let result_copy = result.clone();
+                        if host.host().to_owned() == thost {
+                            host.set_status(result_copy);
+                        }
+                    }
+
+                },
+                Ok(Err(e)) => println!("Thread handle encountered an error: {:?}", e),
+                Err(e) => println!("Thread handle encountered an error: {:?}", e),
             };
         }
 
@@ -136,7 +148,7 @@ impl Api {
 }
 
     // Contact the host (http://{host}/api/v1/auth/check/{id})
-fn auth_check (host: &String, id: &String) -> Result<(), String> {
+fn auth_check (host: &String, id: &String) -> Result<AuthKeyStatus, String> {
     let copy_uri = format!("http://{}/api/v1/auth/check/{}", host, id);
     let uri: reqwest::Url = copy_uri.parse().unwrap();
 
@@ -158,9 +170,14 @@ fn auth_check (host: &String, id: &String) -> Result<(), String> {
         Err(e) => return Err(e.to_string()),
     };
 
-    println!("{}", rr.message);
+    let result: AuthKeyStatus = match rr.message.as_ref() {
+        "authorized" => AuthKeyStatus::Authorized,
+        "unauthorized" => AuthKeyStatus::Unauthorized,
+        "unknown" => AuthKeyStatus::Unknown,
+        _ => AuthKeyStatus::None,
+    };
 
-    Ok(())
+    Ok(result)
 }
 
 pub fn check_host_availability (host: &String) -> Result<(), String> {

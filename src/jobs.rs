@@ -12,10 +12,10 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) {
 
     thread::Builder::new().name("Job_Runner".to_string()).spawn(move || {
         // Setup the authentication. Note it will panic if something errors.
-        auth_setup(available_hosts, host_auth, config).expect("Did not setup properly");
+        auth_setup(available_hosts, host_auth, config, tx.clone()).expect("Did not setup properly");
 
         loop {
-            tx.send("hello world".to_string()).ok();
+            loop_step();
             thread::sleep(Duration::from_secs(5));
         }
 
@@ -28,7 +28,7 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) {
 // Step 3: If true: auth_check
 //         If false: generate the key then auth_check.
 fn auth_setup (available_hosts: Arc<Mutex<Vec<String>>>, 
-host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> Result<(), String> {
+host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config, tx: ThreadOut<String>) -> Result<(), String> {
     let conf = config.clone();
     let conn = match Connection::connect("postgres://Alex@127.0.0.1:5432", TlsMode::None)
     {
@@ -94,7 +94,10 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> Result<(), String> {
     }
 
     // Now check the hosts for authorization.
-    api.auth_check_all(host_auth).unwrap();
+    match api.auth_check_all(host_auth) {
+        Ok(()) => tx.send(String::from("Auth Setup completed")),
+        Err(e) => return Err(e.to_string()),
+    };
 
     // Does this need to return anything? Probably not. TODO: Re-evaluate this later.
     Ok(())
@@ -106,4 +109,6 @@ host_auth: Arc<Mutex<Vec<AuthKey>>>, config: Config) -> Result<(), String> {
 //         message to the front end to press a button to regenerate it.
 // Step 3: Gather data and store in the database.
 
-// fn loop_step () {}
+fn loop_step () {
+    // make auth_check_all tx.send the results.
+}

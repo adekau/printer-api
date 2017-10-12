@@ -1,5 +1,5 @@
 // Contains authentication information for a host.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AuthKey {
     host: String,
     id: String,
@@ -8,7 +8,7 @@ pub struct AuthKey {
 }
 
 // Status of an auth key (returns from /api/v1/auth/check).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum AuthKeyStatus {
     // Initial state of an AuthKey. No check has been done yet.
     None,
@@ -60,7 +60,7 @@ impl AuthKey {
     //     &mut self.key
     // }
 
-    // pub fn status_mut (&mut self) -> &mut AuthKeyStatus {
-    //     &mut self.status
-    // }
+    pub fn set_status (&mut self, s: AuthKeyStatus) {
+        self.status = s
+    }
 }
